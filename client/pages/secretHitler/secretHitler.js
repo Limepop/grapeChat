@@ -336,7 +336,6 @@ function setup() {
                     socket.emit('allow-veto');
                     vetoAvailable = true;
                 }
-                $('#veto').hide();
             }
 
         } else {
@@ -389,6 +388,7 @@ function setup() {
             chat("A " + nameOfLiberals + " policy has been enacted in the chaos!", 'green');
             $('#l-policies').html(nameOfLiberals + ' Policies: ' + (data.l + 1));
         }
+        socket.emit('send-last-pres', president);
         if (currentUser == president) {
             socket.emit('chaos-policy-enacted', data.t);
         }

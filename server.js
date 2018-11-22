@@ -396,6 +396,48 @@ io.on('connection', (socket) => {
             lastPres = data;
             console.log("lastPres: " + lastPres);
         });
+
+        socket.on('allow-veto', function() {
+            vetoAvailable = true;
+        });
+
+        socket.on('propose-veto', function () {
+            io.emit('veto-proposed', chancellor);
+        });
+
+        socket.on('yes-to-veto', function () {
+            io.emit('veto-passed', president);
+            if (deck.length >= 3) {
+                topThreePolicies = [deck.pop(), deck.pop(), deck.pop()];
+            } else {
+                buildDeck();
+            }
+            rejectedGovs++;
+            console.log("Rejected governments: " + rejectedGovs);
+            if (rejectedGovs >= 3) {
+                rejectedGovs = 0;
+                undesirables = [];
+                io.emit('sh-chaos', {
+                    f: fPols,
+                    l: lPols,
+                    t: topThreePolicies[0]
+                });
+            }
+            if (!gameOver) {
+                console.log('veto passed');
+                printResults();
+                nextRound('');
+                chancellor = '';
+            }
+        });
+
+        socket.on('no-to-veto', function() {
+            io.emit('veto-rejected', president);
+        });
+
+        socket.on('leave-sh-chancellor', function() {
+            socket.leave('sh-chancellor');
+        });
     }
 
     //Grapes Against Humanity
@@ -741,7 +783,8 @@ function checkVotes() {
                 top: topThreePolicies,
                 fPols: fPols,
                 va: votersAgainstGov,
-                vf: votersForGov
+                vf: votersForGov,
+                go: gameOver
             });
             votesForGov = 0;
             votesAgainstGov = 0;

@@ -38,7 +38,7 @@ var chanNom = '';
 var presNom = '';
 var prevPresNom = '';
 var presIndex = 0;
-var fPols = 0;
+var fPols = 4;
 var lPols = 0;
 var turnNum = 0;
 var deck = [];
@@ -61,6 +61,8 @@ var presPolicies = [];
 var chanPolicy = false;
 var peekResult = 0;
 var target = '';
+var vetoAvailable = false;
+var lastPres = '';
 
 var nameOfHitler = 'Hitler';
 var nameOfChancellor = 'Chancellor';
@@ -231,7 +233,7 @@ io.on('connection', (socket) => {
 
         socket.on('join-sh-chancellor', function (data) {
             socket.join('sh-chancellor');
-            console.log(chancellor + " is the new chancellor.");
+            console.log(data + " is the new chancellor.");
             if (!gameOver) {
                 botPres();
             }
@@ -271,9 +273,14 @@ io.on('connection', (socket) => {
         });
 
         socket.on('pres-chose-policies', function (data) {
+            if (vetoAvailable) {
+                io.to('sh-chancellor').emit('veto-on');
+            }
             io.to('sh-chancellor').emit('policies-to-chancellor', data);
             presPolicies = data;
-            botChan();
+            if (!gameOver) {
+                botChan();
+            }
         });
 
         socket.on('chan-chose-policy', function (data) {
@@ -290,6 +297,8 @@ io.on('connection', (socket) => {
             } else {
                 lPols++;
             }
+//            console.log('chan chose fPols: ', fPols);
+//            console.log('chan chose lPols: ', lPols);
             io.emit('policy-enacted', {
                 policy: data,
                 fPols: fPols,
@@ -297,6 +306,7 @@ io.on('connection', (socket) => {
                 players: shPlayers.length,
                 top: topThreePolicies
             });
+            rejectedGovs = 0;
             socket.leave('sh-chancellor');
             chanPolicy = data;
             printResults();
@@ -328,32 +338,63 @@ io.on('connection', (socket) => {
         });
 
         socket.on('chaos-policy-enacted', function (data) {
-            if (deck.length >= 3) {
-                topThreePolicies.splice(0,1);
-                topThreePolicies.push(deck.pop());
-            } else {
-                buildDeck();
-            }
-            if (data) {
-                fPols++;
-            } else {
-                lPols++;
-            }
-            if (lPols >= 5) {
-                lWins++;
-                io.emit('sh-game-finished', ('Five ' + nameOfLiberals + ' policies enacted. ' + nameOfLiberals + 's win.'));
-                gameOver = true;
-            } else if (fPols >= 6) {
-                fWins++;
-                io.emit('sh-game-finished', ('Six ' + nameOfFascists + ' policies enacted. ' + nameOfFascists + 's win.'));
-                gameOver = true;
-            }
-            rejectedGovs = 0;
-            undesirables = [];
+            console.log('player pres, chaos');
+            chaos(data);
         });
 
         socket.on('player-investigated', function (data) {
             io.emit('notify-investigation', data);
+        });
+
+        socket.on('allow-veto', function() {
+            vetoAvailable = true;
+        });
+
+        socket.on('propose-veto', function () {
+            io.emit('veto-proposed', chancellor);
+        });
+
+        socket.on('yes-to-veto', function () {
+            io.emit('veto-passed', president);
+            if (deck.length >= 3) {
+                topThreePolicies = [deck.pop(), deck.pop(), deck.pop()];
+            } else {
+                buildDeck();
+            }
+            rejectedGovs++;
+//            console.log("Rejected governments: " + rejectedGovs);
+            if (rejectedGovs >= 3) {
+                rejectedGovs = 0;
+                undesirables = [];
+                io.emit('sh-chaos', {
+                    f: fPols,
+                    l: lPols,
+                    t: topThreePolicies[0]
+                });
+                if (lastPres == '' || bots.includes(lastPres)) {
+                    console.log('bot pres, veto chaos');
+                    chaos(topThreePolicies[0]);
+                }
+            }
+            if (!gameOver) {
+//                console.log('veto passed');
+                printResults();
+                nextRound('');
+                chancellor = '';
+            }
+        });
+
+        socket.on('no-to-veto', function() {
+            io.emit('veto-rejected', president);
+        });
+
+        socket.on('leave-sh-chancellor', function() {
+            socket.leave('sh-chancellor');
+        });
+
+        socket.on('send-last-pres', function(data) {
+            lastPres = data;
+            console.log("lastPres: " + lastPres);
         });
     }
 
@@ -412,6 +453,7 @@ function autoChancellor() {
 
 //Bot votes
 function autoVote() {
+    currentBot = 0;
     if (fascists.includes(presNom)) {
         fascistPres = true;
     } else {
@@ -425,21 +467,20 @@ function autoVote() {
     console.log("Bots voting...");
     while (currentBot < bots.length) {
         if (fascists.includes((bots[currentBot]))) {
-            if (fascistPres || fascistChan) {
-                    botYes();
-            } else {
+    //        if (fascistPres || fascistChan) {
+    //                botYes();
+    //        } else {
                     botNo();
-            }
+    //        }
         } else {
-            if (Math.floor(Math.random()*2) == 1){
-                botYes();
-            } else {
-                botNo();
-            }
+    //        if (Math.floor(Math.random()*2) == 1){
+    //               botYes();
+    //        } else {
+                  botNo();
+    //        }
         }
         currentBot++;
     }
-    currentBot = 0;
 }
 
 //Bot votes yes
@@ -476,6 +517,9 @@ function botPres() {
             presPolicies.push(true, true);
         }
         console.log("Fascist Cards: " + fCardCount);
+        if (vetoAvailable) {
+            io.to('sh-chancellor').emit('veto-on');
+        }
         io.to('sh-chancellor').emit('policies-to-chancellor', presPolicies);
         botChan();
     }
@@ -507,6 +551,8 @@ function botChan() {
         } else {
             lPols++;
         }
+//        console.log('bot fPols: ', fPols);
+//        console.log('bot lPols: ', lPols);
         io.emit('policy-enacted', {
             policy: chanPolicy,
             fPols: fPols,
@@ -514,6 +560,7 @@ function botChan() {
             players: shPlayers.length,
             top: topThreePolicies
         });
+        rejectedGovs = 0;
         printResults();
         botPowers();
     }
@@ -547,6 +594,9 @@ function botPowers() {
                 gameOver = true;
             } else {
                 nextRound('');
+            }
+            if (fPols == 5) {
+                vetoAvailable = true;
             }
         } else {
             console.log("Liberal policy enacted. No presidential power.")
@@ -641,6 +691,7 @@ function execution() {
 
 //Checks if all votes are in
 function checkVotes() {
+//    console.log(shPlayers.length);
     if (votesAgainstGov + votesForGov == shPlayers.length) {
         console.log("all votes in");
         if (votesAgainstGov >= votesForGov) {
@@ -659,15 +710,20 @@ function checkVotes() {
             votersAgainstGov = [];
             votersForGov = [];
             if (rejectedGovs >= 3) {
+                rejectedGovs = 0;
                 undesirables = [];
                 io.emit('sh-chaos', {
                     f: fPols,
                     l: lPols,
                     t: topThreePolicies[0]
                 });
-                rejectedGovs = 0;
+                if (lastPres == '' || bots.includes(lastPres)) {
+                    console.log('bot pres, reject chaos');
+                    chaos(topThreePolicies[0]);
+                }
             }
             if (!gameOver) {
+//                console.log('votes checked');
                 autoChancellor();
             }
         } else if (votesForGov > votesAgainstGov) {
@@ -689,12 +745,13 @@ function checkVotes() {
             });
             votesForGov = 0;
             votesAgainstGov = 0;
-            rejectedGovs = 0;
             votersAgainstGov = [];
             votersForGov = [];
-            if (hitler == chancellor && fPols >= 3 && bots.includes(president)) {
+            if (hitler == chancellor && fPols >= 3) {
+                if (bots.includes(president)) {
                 fWins++;
                 io.emit('sh-game-finished', nameOfHitler + " was elected after 3 " + nameOfFascists + " policies were enacted. " + nameOfFascists + "s win!");
+                }
                 gameOver = true;
             } else if (bots.includes(chancellor) && !gameOver) {
                 botPres();
@@ -749,6 +806,33 @@ function killPlayer(data) {
     }
     io.emit('player-killed', data);
 }
+
+function chaos(data) {
+    if (deck.length >= 3) {
+        topThreePolicies.splice(0,1);
+        topThreePolicies.push(deck.pop());
+    } else {
+        buildDeck();
+    }
+    if (data) {
+        fPols++;
+    } else {
+        lPols++;
+    }
+            console.log('chaos fPols: ', fPols);
+            console.log('chaos lPols: ', lPols);
+    if (lPols >= 5) {
+        lWins++;
+        io.emit('sh-game-finished', ('Five ' + nameOfLiberals + ' policies enacted. ' + nameOfLiberals + 's win.'));
+        gameOver = true;
+    } else if (fPols >= 6) {
+        fWins++;
+        io.emit('sh-game-finished', ('Six ' + nameOfFascists + ' policies enacted. ' + nameOfFascists + 's win.'));
+        gameOver = true;
+    }
+    rejectedGovs = 0;
+    undesirables = [];
+  }
 
 function shuffle(array) {
     var currentIndex = array.length,

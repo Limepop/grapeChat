@@ -509,17 +509,17 @@ function autoVote() {
     console.log("Bots voting...");
     while (currentBot < bots.length) {
         if (fascists.includes((bots[currentBot]))) {
-    //        if (fascistPres || fascistChan) {
-    //                botYes();
-    //        } else {
-                    botNo();
-    //        }
+            if (fascistPres || fascistChan) {
+                botYes();
+            } else {
+                botNo();
+            }
         } else {
-    //        if (Math.floor(Math.random()*2) == 1){
-    //               botYes();
-    //        } else {
-                  botNo();
-    //        }
+            if (Math.floor(Math.random()*2) == 1){
+                botYes();
+            } else {
+                botNo();
+            }
         }
         currentBot++;
     }

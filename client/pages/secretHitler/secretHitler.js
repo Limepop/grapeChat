@@ -39,9 +39,13 @@ function setup() {
     $('#voting').hide();
     $('#cards').hide();
     $('#inv-abl').prop('disabled', true);
+    $('#inv-abl').hide();
     $('#exe-abl').prop('disabled', true);
+    $('#exe-abl').hide();
     $('#spe-abl').prop('disabled', true);
+    $('#spe-abl').hide();
     $('#pol-abl').prop('disabled', true);
+    $('#pol-abl').hide();
 
     socket.emit('entered-sh-page');
 
@@ -208,11 +212,11 @@ function setup() {
         for(var i = 0; i < data.va.length; i++){
             chat(data.va[i] + " voted AGAINST this government!", 'red');
         }
-        
+
         for(var i = 0; i < data.vf.length; i++){
             chat(data.vf[i] + " voted FOR this government!", 'green');
         }
-        
+
         chat("The election failed. The next nominee for " + nameOfPresident + " is " + data.presNom);
         $('#' + data.chan).attr('class', 'player');
         $('#' + data.pres).attr('class', 'player');
@@ -240,14 +244,14 @@ function setup() {
     socket.on('voting-passed', function (data) {
         president = data.pres;
         chancellor = data.chan;
-        
+
         for(var i = 0; i < data.va.length; i++){
             chat(data.va[i] + " voted AGAINST this government!", 'red');
         }
         for(var i = 0; i < data.vf.length; i++){
             chat(data.vf[i] + " voted FOR this government!", 'green');
         }
-        
+
         chat("The election was successful. " + president + " is the new " + nameOfPresident + " and " + chancellor + " is the new " + nameOfChancellor + ".", 'cyan');
         if (president == currentUser) {
             presChoosePolicies(data.top);
@@ -274,8 +278,10 @@ function setup() {
             if (president == currentUser) {
                 if (data.players < 7) {
                     if (data.fPols == 3) {
+                        $('#pol-abl').show();
                         $('#pol-abl').prop('disabled', false);
                     } else if (data.fPols == 4 || data.fPols == 5) {
+                        $('#exe-abl').show();
                         $('#exe-abl').prop('disabled', false);
                     } else if (data.fPols == 6) {
                         if(currentUser == president)
@@ -285,10 +291,13 @@ function setup() {
                     }
                 } else if (data.players == 7 || data.players == 8) {
                     if (data.fPols == 2) {
+                        $('#inv-abl').show();
                         $('#inv-abl').prop('disabled', false);
                     } else if (data.fPols == 3) {
+                        $('#spe-abl').show();
                         $('#spe-abl').prop('disabled', false);
                     } else if (data.fPols == 4 || data.fPols == 5) {
+                        $('#exe-abl').show();
                         $('#exe-abl').prop('disabled', false);
                     } else if (data.fPols == 6) {
                         if(currentUser == president)
@@ -298,10 +307,13 @@ function setup() {
                     }
                 } else if (data.players == 9 || data.players == 10) {
                     if (data.fPols == 1 || data.players == 2) {
+                        $('#inv-abl').show();
                         $('#inv-abl').prop('disabled', false);
                     } else if (data.fPols == 3) {
+                        $('#spe-abl').show();
                         $('#spe-abl').prop('disabled', false);
                     } else if (data.fPols == 4 || data.fPols == 5) {
+                        $('#exe-abl').show();
                         $('#exe-abl').prop('disabled', false);
                     } else if (data.fPols == 6) {
                         if(currentUser == president)
@@ -603,6 +615,7 @@ function setup() {
 
         presInvestigating = true;
         chat('Choose a player to investigate.', 'cyan');
+        $('#inv-abl').hide();
     });
 
     $('#pol-abl').click(function () {
@@ -633,6 +646,7 @@ function setup() {
 
         chat("The next three policies are " + polA + ', ' + polB + ', and ' + polC + '.', 'cyan');
         socket.emit('next-round', '');
+        $('#pol-abl').hide();
     });
 
     $('#exe-abl').click(function () {
@@ -643,6 +657,7 @@ function setup() {
 
         presExecuting = true;
         chat('Choose a player to execute.', 'cyan');
+        $('#exe-abl').hide();
     });
 
     $('#spe-abl').click(function () {
@@ -653,6 +668,7 @@ function setup() {
 
         presChoosingNextPres = true;
         chat('Choose a player to be selected as ' + nameOfPresident + ' for the next election.');
+        $('#spe-abl').hide();
     });
 
 }
